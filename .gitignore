@@ -1,0 +1,17 @@
+# Ignore RSA private keys and other sensitive files
+*.pem
+
+# Go build artifacts
+/bin/
+*.exe
+*.test
+*.out
+
+# Dependency directories (vendor/)
+vendor/
+
+# IDE/editor files
+.vscode/
+.idea/
+.DS_Store
+*.swp
