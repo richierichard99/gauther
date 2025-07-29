@@ -7,6 +7,7 @@ import (
 
 	"github.com/richierichard99/gauther/auth"
 	"github.com/richierichard99/gauther/server"
+	"github.com/richierichard99/gauther/store/dummy"
 )
 
 func main() {
@@ -20,7 +21,9 @@ func main() {
 		log.Fatalf("failed to create auth client: %v", err)
 	}
 
-	httpServer := server.NewServer(log.Default(), authClient)
+	userStore := dummy.NewStore()
+
+	httpServer := server.NewServer(log.Default(), authClient, userStore)
 	log.Println("Server running on :8080")
 	if err := httpServer.Start(":8080", authClient); err != nil {
 		log.Fatalf("server failed: %v", err)

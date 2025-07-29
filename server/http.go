@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -14,9 +15,14 @@ type authClient interface {
 	VerifyJwt() func(http.HandlerFunc) http.HandlerFunc
 }
 
+type userStore interface {
+	Validate(context context.Context, username, password string) bool
+}
+
 // Server struct holds the auth client
 type httpServer struct {
 	authClient authClient
+	userStore  userStore
 	logger     *log.Logger
 }
 
@@ -26,8 +32,8 @@ type creds struct {
 }
 
 // NewServer creates a new Server instance
-func NewServer(log *log.Logger, authClient authClient) *httpServer {
-	return &httpServer{authClient: authClient, logger: log}
+func NewServer(log *log.Logger, authClient authClient, userStore userStore) *httpServer {
+	return &httpServer{authClient: authClient, userStore: userStore, logger: log}
 }
 
 // middleware is a definition of  what a middleware is,
@@ -51,9 +57,8 @@ func (s *httpServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	// Hardcoded credentials
-	if c.Username != "admin" || c.Password != "password123" {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	if !s.userStore.Validate(r.Context(), c.Username, c.Password) {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
