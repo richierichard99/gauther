@@ -31,8 +31,8 @@ func NewClientRsa(pemKey []byte) (*client, error) {
 	}, nil
 }
 
-func (c *client) GenerateToken() (string, error) {
-	token := jwt.New(jwt.SigningMethodRS256)
+func (c *client) GenerateToken(claims jwt.Claims) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString(c.key)
 	if err != nil {

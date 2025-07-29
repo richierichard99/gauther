@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type authClient interface {
-	GenerateToken() (string, error)
+	GenerateToken(claims jwt.Claims) (string, error)
 	VerifyJwt() func(http.HandlerFunc) http.HandlerFunc
 }
 
@@ -53,7 +56,13 @@ func (s *httpServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	token, err := s.authClient.GenerateToken()
+
+	claims := jwt.MapClaims{
+		"exp": jwt.NewNumericDate(time.Now().Add(1 * time.Hour)),
+		"iat": jwt.NewNumericDate(time.Now()),
+		"sub": c.Username,
+	}
+	token, err := s.authClient.GenerateToken(claims)
 	if err != nil {
 		s.logger.Printf("failed to generate token: %v", err)
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
