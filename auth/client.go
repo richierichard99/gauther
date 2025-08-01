@@ -16,7 +16,7 @@ func NewClientRsa(pemKey []byte) (*client, error) {
 	var key *rsa.PrivateKey
 	var err error
 
-	if len(pemKey) == 0 {
+	if len(pemKey) != 0 {
 		// Load the RSA key from PEM format if provided
 		if key, err = jwt.ParseRSAPrivateKeyFromPEM(pemKey); err != nil {
 			return nil, fmt.Errorf("failed to parse RSA private key: %w", err)
