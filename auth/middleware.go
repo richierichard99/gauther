@@ -16,9 +16,14 @@ func (c *client) VerifyJwt() func(http.HandlerFunc) http.HandlerFunc {
 				http.Error(w, "Authorization header is missing", http.StatusUnauthorized)
 				return
 			}
+			if len(jwtToken) < 7 && jwtToken[:7] != "Bearer " {
+				http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
+				return
+			}
+			parsedToken := jwtToken[7:] // Remove "Bearer " prefix
 
 			claims := jwt.RegisteredClaims{}
-			if _, err := jwt.ParseWithClaims(jwtToken, &claims, func(token *jwt.Token) (interface{}, error) {
+			if _, err := jwt.ParseWithClaims(parsedToken, &claims, func(token *jwt.Token) (interface{}, error) {
 				return &c.key.PublicKey, nil
 			}); err != nil {
 				http.Error(w, "Invalid JWT: "+err.Error(), http.StatusUnauthorized)
