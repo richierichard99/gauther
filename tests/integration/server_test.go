@@ -22,38 +22,67 @@ type tokenResponse struct {
 }
 
 func TestServer(t *testing.T) {
-	t.Cleanup(cleanup)
 	// Create a new HTTP server with the dummy store and auth client
 	server := newTestServer(t)
 	defer server.Close()
+	t.Cleanup(cleanup)
 
-	res := testLoginRequest(t, server, "testuser", "testpassword")
-	// Ensure the response is valid
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status OK, got %v", res.Status)
-	}
-	// Read the response body
-	responseBody, err := io.ReadAll(res.Body)
-	if err != nil {
-		t.Fatalf("Failed to read response body: %v", err)
-	}
-	var tokenResp tokenResponse
-	if err := json.Unmarshal(responseBody, &tokenResp); err != nil {
-		t.Fatalf("Failed to unmarshal response body: %v", err)
-	}
-	if tokenResp.Token == "" {
-		t.Fatal("Expected a token in the response, got empty string")
-	}
+	t.Run("Log in and Validate - Success", func(t *testing.T) {
 
-	// Now test the /validate endpoint with the token
-	validateRes := testValidateRequest(t, server, tokenResp.Token)
-	// Ensure the response is valid
-	defer validateRes.Body.Close()
-	if validateRes.StatusCode != http.StatusOK {
-		t.Fatalf("Expected status OK, got %v", validateRes.Status)
-	}
+		res := testLoginRequest(t, server, "testuser", "testpassword")
+		// Ensure the response is valid
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("Expected status OK, got %v", res.Status)
+		}
+		// Read the response body
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		var tokenResp tokenResponse
+		if err := json.Unmarshal(responseBody, &tokenResp); err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v", err)
+		}
+		if tokenResp.Token == "" {
+			t.Fatal("Expected a token in the response, got empty string")
+		}
 
+		// Now test the /validate endpoint with the token
+		validateRes := testValidateRequest(t, server, tokenResp.Token)
+		// Ensure the response is valid
+		defer validateRes.Body.Close()
+		if validateRes.StatusCode != http.StatusOK {
+			t.Fatalf("Expected status OK, got %v", validateRes.Status)
+		}
+	})
+
+	t.Run("Log in with Invalid Credentials - Failure", func(t *testing.T) {
+
+		res := testLoginRequest(t, server, "testuser", "wrongpassword")
+		// Ensure the response is valid
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected status Unauthorized, got %v", res.Status)
+		}
+	})
+
+	t.Run("Validate with invalid token - Failure", func(t *testing.T) {
+		req, err := http.NewRequest("GET", fmt.Sprintf("%s/validate", server.URL), nil)
+		if err != nil {
+			t.Fatalf("Failed to create request: %v", err)
+		}
+		req.Header.Set("Authorization", "Bearer invalidtoken")
+		client := &http.Client{}
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("Failed to make request: %v", err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("Expected status Unauthorized, got %v", res.Status)
+		}
+	})
 }
 
 func newTestServer(t *testing.T) *httptest.Server {
