@@ -3,35 +3,40 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type store struct {
-	redis *redis.Client
+	logger *log.Logger
+	redis  *redis.Client
 }
 
 // NewStore creates a new Redis client
-func NewStore(addr string, db int) *store {
+func NewStore(log *log.Logger, addr string, db int) *store {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: addr,
 		DB:   db,
 	})
 
-	return &store{redis: rdb}
+	return &store{redis: rdb, logger: log}
 }
 
 // Validate checks the username and password
-func (s *store) Validate(ctx context.Context, username, password string) bool {
+func (s *store) Validate(ctx context.Context, username, password string) (bool, error) {
 	storedHash, err := s.redis.Get(ctx, username).Result()
-	if err != nil {
-		return false
+	if err == redis.Nil {
+		s.logger.Printf("User %s not found", username)
+		return false, nil
+	} else if err != nil {
+		return false, fmt.Errorf("failed to get user from Redis: %w", err)
 	}
 	if bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password)) != nil {
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 // InsertUser inserts a username and hashed password into Redis

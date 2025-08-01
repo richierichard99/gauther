@@ -7,7 +7,7 @@ import (
 
 	"github.com/richierichard99/gauther/auth"
 	"github.com/richierichard99/gauther/server"
-	"github.com/richierichard99/gauther/store/dummy"
+	"github.com/richierichard99/gauther/store/redis"
 )
 
 func main() {
@@ -21,11 +21,11 @@ func main() {
 		log.Fatalf("failed to create auth client: %v", err)
 	}
 
-	userStore := dummy.NewStore()
+	userStore := redis.NewStore(log.Default(), "localhost:6379", 0)
 
 	httpServer := server.NewServer(log.Default(), authClient, userStore)
 	log.Println("Server running on :8080")
-	if err := httpServer.Start(":8080", authClient); err != nil {
+	if err := httpServer.Start(":8080"); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }

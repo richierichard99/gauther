@@ -16,7 +16,7 @@ type authClient interface {
 }
 
 type userStore interface {
-	Validate(context context.Context, username, password string) bool
+	Validate(context context.Context, username, password string) (bool, error)
 }
 
 // Server struct holds the auth client
@@ -50,6 +50,12 @@ func buildChain(f http.HandlerFunc, m ...middleware) http.HandlerFunc {
 	return m[0](buildChain(f, m[1:cap(m)]...))
 }
 
+func (s *httpServer) RegisterRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/login", s.loginHandler)
+	// Use JWT middleware for /validate
+	mux.HandleFunc("/validate", buildChain(s.validateHandler, s.authClient.VerifyJwt()))
+}
+
 // loginHandler handles login and returns a JWT if credentials are valid
 func (s *httpServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var c creds
@@ -57,7 +63,13 @@ func (s *httpServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	if !s.userStore.Validate(r.Context(), c.Username, c.Password) {
+	valid, err := s.userStore.Validate(r.Context(), c.Username, c.Password)
+	if err != nil {
+		s.logger.Printf("failed to validate user: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+	if !valid {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -83,9 +95,8 @@ func (s *httpServer) validateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // Start runs the HTTP server
-func (s *httpServer) Start(addr string, authClient authClient) error {
-	http.HandleFunc("/login", s.loginHandler)
-	// Use JWT middleware for /validate
-	http.HandleFunc("/validate", buildChain(s.validateHandler, authClient.VerifyJwt()))
-	return http.ListenAndServe(addr, nil)
+func (s *httpServer) Start(addr string) error {
+	mux := http.NewServeMux()
+	s.RegisterRoutes(mux)
+	return http.ListenAndServe(addr, mux)
 }
